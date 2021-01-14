@@ -46,6 +46,8 @@
 #include "hw/hw.h"
 #include "trace.h"
 
+#include "aplib.h"
+
 #ifdef CONFIG_LINUX
 
 #include <sys/prctl.h>
