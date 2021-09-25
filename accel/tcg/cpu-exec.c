@@ -205,7 +205,7 @@ static inline void log_cpu_exec(target_ulong pc, CPUState *cpu,
     if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_CPU | CPU_LOG_EXEC))
         && qemu_log_in_addr_range(pc)) {
 
-    	ap_log_pc(itb->pc);
+    	ap_log_pc(tb->pc);
         qemu_log_mask(CPU_LOG_EXEC,
                       "Trace %d: %p [" TARGET_FMT_lx
                       "/" TARGET_FMT_lx "/%08x/%08x] %s\n",
