@@ -2162,10 +2162,12 @@ static void vtd_handle_gcmd_te(IntelIOMMUState *s, bool en)
     trace_vtd_dmar_enable(en);
 
     if (en) {
+	printf("%s:%d dmar_enable=1\n",__FILE__,__LINE__);
         s->dmar_enabled = true;
         /* Ok - report back to driver */
         vtd_set_clear_mask_long(s, DMAR_GSTS_REG, 0, VTD_GSTS_TES);
     } else {
+	printf("%s:%d dmar_enable=0\n",__FILE__,__LINE__);
         s->dmar_enabled = false;
 
         /* Clear the index of Fault Recording Register */
@@ -2207,6 +2209,7 @@ static void vtd_handle_gcmd_write(IntelIOMMUState *s)
         vtd_handle_gcmd_te(s, val & VTD_GCMD_TE);
     }
     if (val & VTD_GCMD_SRTP) {
+	printf("%s:%d handle root-table pointer\n",__FILE__,__LINE__);
         /* Set/update the root-table pointer */
         vtd_handle_gcmd_srtp(s);
     }
@@ -2675,6 +2678,7 @@ static uint64_t vtd_mem_read(void *opaque, hwaddr addr, unsigned size)
     IntelIOMMUState *s = opaque;
     uint64_t val;
 
+    // printf("%s:%d\n",__FILE__,__LINE__);
     trace_vtd_reg_read(addr, size);
 
     if (addr + size > DMAR_REG_SIZE) {
@@ -2726,6 +2730,7 @@ static void vtd_mem_write(void *opaque, hwaddr addr,
 {
     IntelIOMMUState *s = opaque;
 
+    printf("%s:%d addr=0x%lx val=0x%lx\n",__FILE__,__LINE__,addr, val);
     trace_vtd_reg_write(addr, size, val);
 
     if (addr + size > DMAR_REG_SIZE) {
@@ -2759,6 +2764,7 @@ static void vtd_mem_write(void *opaque, hwaddr addr,
 
     /* IOTLB Invalidation Register, 64-bit */
     case DMAR_IOTLB_REG:
+	printf("%s:%d write to DMAR_IOTLB_REG: 0x%lx\n", __FILE__,__LINE__,val);
         if (size == 4) {
             vtd_set_long(s, addr, val);
         } else {
@@ -2768,6 +2774,7 @@ static void vtd_mem_write(void *opaque, hwaddr addr,
         break;
 
     case DMAR_IOTLB_REG_HI:
+	printf("%s:%d write to DMAR_IOTLB_REG_HI: 0x%lx\n", __FILE__,__LINE__,val);
         assert(size == 4);
         vtd_set_long(s, addr, val);
         vtd_handle_iotlb_write(s);
@@ -2834,6 +2841,7 @@ static void vtd_mem_write(void *opaque, hwaddr addr,
 
     /* Root Table Address Register, 64-bit */
     case DMAR_RTADDR_REG:
+    	printf("%s:%d DMAR_RTADDR_REG val=0x%lx\n",__FILE__,__LINE__,val);
         if (size == 4) {
             vtd_set_long(s, addr, val);
         } else {
@@ -2842,6 +2850,7 @@ static void vtd_mem_write(void *opaque, hwaddr addr,
         break;
 
     case DMAR_RTADDR_REG_HI:
+    	printf("%s:%d DMAR_RTADDR_REG_HI val=0x%lx\n",__FILE__,__LINE__,val);
         assert(size == 4);
         vtd_set_long(s, addr, val);
         break;

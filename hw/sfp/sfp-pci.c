@@ -50,7 +50,7 @@ static const VMStateDescription sfp_vmstate = {
 static uint64_t sfp_mmio_read(void *opaque, hwaddr addr, unsigned size) {
   // SFPMBS *n = (SFPMBS *)opaque;
   uint64_t val = 0;
-  ap_get_fuzz_data((char *)&val, addr, size);
+  ap_get_fuzz_data((uint8_t *)&val, addr, size);
   // TODO: read from fuzz file @ offset addr and size
   return val;
 }
@@ -118,9 +118,10 @@ static void sfp_gen_irq(void *opaque) {
     sfp_deassert_irq(n);
   }
   // schedule to trigger another irq
-  timer_mod(n->timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + 10000000);
+  timer_mod(n->timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + 100000000);
 }
 
+#if 0
 static int sfp_vector_unmask(PCIDevice *dev, unsigned vector, MSIMessage msg) {
   return 0;
 }
@@ -129,7 +130,7 @@ static void sfp_vector_mask(PCIDevice *dev, unsigned vector) {}
 
 static void sfp_vector_poll(PCIDevice *dev, unsigned int vector_start,
                             unsigned int vector_end) {}
-
+#endif
 static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
 
   SFPCtrl *n = SFP(pci_dev);
@@ -174,24 +175,25 @@ static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
   // pcie_endpoint_cap_init(pci_dev, 0x80);
   // specify class id here
   const char *spciclass = getenv("PCI_CLASS");
-  if (spciclass != NULL) {
-    uint32_t udata;
-    uint16_t pciclass;
-    uint8_t progif;
-    sscanf(spciclass, "%x", &udata);
-    printf("SFP PCI CLASS=%#x\n", udata);
-    progif = udata & 0xff;
-    pciclass = udata >> 8;
-    pci_config_set_class(pci_conf, pciclass);
-    pci_config_set_prog_interface(pci_conf, progif);
+  uint32_t udata;
+  if (spciclass == NULL) {
+    udata = ap_get_pci_class();
   } else {
-    pci_config_set_class(pci_conf, PCI_CLASS_OTHERS);
-    pci_config_set_prog_interface(pci_conf, 0x0);
+    sscanf(spciclass, "%x", &udata);
   }
+  uint16_t pciclass;
+  uint8_t progif;
+  printf("SFP PCI CLASS=%#x\n", udata);
+  progif = udata & 0xff;
+  pciclass = udata >> 8;
+  pci_config_set_class(pci_conf, pciclass);
+  pci_config_set_prog_interface(pci_conf, progif);
 
   printf("Create MSIX bar\n");
   pci_conf[PCI_INTERRUPT_PIN] = 1;
   n->irq = pci_allocate_irq(pci_dev);
+#if 0
+  //TODO make this configurable
   if (msix_init_exclusive_bar(pci_dev, 32, 4, errp)) {
     printf("SFP:cannot init MSIX ");
     exit(-1);
@@ -208,6 +210,7 @@ static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
     printf("SFP: cannot set msix notifier\n");
     exit(-1);
   }
+#endif
   printf("Create Timed IRQ\n");
   n->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, sfp_gen_irq, n);
 
@@ -229,6 +232,9 @@ static void sfp_exit(PCIDevice *pci_dev) { msix_uninit_exclusive_bar(pci_dev); }
 #define PCI_PRODUCT_ID_HAPS_HSOTG 0xabc0
 
 static void sfp_class_init(ObjectClass *oc, void *data) {
+  // initialize AFL client here
+  ap_init();
+
   DeviceClass *dc = DEVICE_CLASS(oc);
   PCIDeviceClass *pc = PCI_DEVICE_CLASS(oc);
   uint16_t sfpvid = 0x8086;
@@ -237,8 +243,13 @@ static void sfp_class_init(ObjectClass *oc, void *data) {
   const char *spid = getenv("SFPPID");
   if (svid != NULL)
     sscanf(svid, "%hx", &sfpvid);
+  else
+    sfpvid = ap_get_pci_vid();
   if (spid != NULL)
     sscanf(spid, "%hx", &sfppid);
+  else
+    sfppid = ap_get_pci_pid();
+
   printf("SFP vid=%#x, pid=%#x\n", sfpvid, sfppid);
 
   pc->realize = sfp_realize;
@@ -256,7 +267,7 @@ static void sfp_class_init(ObjectClass *oc, void *data) {
     printf("SFP REVISION=%#x\n", revision);
     pc->revision = revision;
   } else {
-    pc->revision = 2;
+    pc->revision = ap_get_pci_rev();
   }
   // sub vid
   const char *sfpsubvid = getenv("SFP_SUBVID");
@@ -266,7 +277,7 @@ static void sfp_class_init(ObjectClass *oc, void *data) {
     printf("SFP SUBVID=%#x\n", subvid);
     pc->subsystem_vendor_id = subvid;
   } else {
-    pc->subsystem_vendor_id = 0;
+    pc->subsystem_vendor_id = ap_get_pci_subvid();
   }
   // sub pid
   const char *sfpsubpid = getenv("SFP_SUBPID");
@@ -276,15 +287,13 @@ static void sfp_class_init(ObjectClass *oc, void *data) {
     printf("SFP SUBPID=%#x\n", subpid);
     pc->subsystem_id = subpid;
   } else {
-    pc->subsystem_id = 0;
+    pc->subsystem_id = ap_get_pci_subpid();
   }
   // does not really matter
   set_bit(DEVICE_CATEGORY_MISC, dc->categories);
-  dc->desc = "SFP device";
+  dc->desc = ap_get_dev_name();
   dc->vmsd = &sfp_vmstate;
 
-  // initialize AFL client here
-  ap_init();
 }
 
 static void sfp_instance_init(Object *obj) {}

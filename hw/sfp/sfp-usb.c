@@ -120,7 +120,7 @@ static const USBDescDevice desc_device_sfp = {
     .bMaxPacketSize0 = 0x40,
     .bNumConfigurations = 1,
     .confs = (USBDescConfig[]){{
-        .bNumInterfaces = 0,// dln2 require this to be 0
+        .bNumInterfaces = 0, // dln2 require this to be 0
         .bConfigurationValue = 1,
         .iConfiguration = 7,
         .bmAttributes = USB_CFG_ATT_ONE | USB_CFG_ATT_SELFPOWER,
@@ -221,9 +221,10 @@ static const VMStateDescription vmstate_usfp = {
 static void usfp_class_initfn(ObjectClass *klass, void *data) {
   DeviceClass *dc = DEVICE_CLASS(klass);
   USBDeviceClass *uc = USB_DEVICE_CLASS(klass);
-  
-  USBDesc* desc = (USBDesc*)ap_get_usb_desc();
-  
+
+  USBDesc *desc = (USBDesc *)ap_get_usb_desc();
+  desc = &desc_sfp;
+
   // change vid/pid
   const char *sfpusbvid = getenv("SFP_USB_VID");
   if (sfpusbvid != NULL) {
@@ -243,7 +244,6 @@ static void usfp_class_initfn(ObjectClass *klass, void *data) {
 
   uc->realize = usb_sfp_realize;
   uc->product_desc = "USB SFP";
-  // uc->usb_desc = &desc_sfp;
   uc->usb_desc = desc;
   uc->handle_reset = usb_sfp_handle_reset;
   uc->handle_control = usb_sfp_handle_control;
