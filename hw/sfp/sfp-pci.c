@@ -39,21 +39,18 @@ typedef struct SFPCtrl {
   PCIDevice parent_obj;
   SFPMBS bars[SFPBARCNT];
   qemu_irq irq;
-  QEMUTimer *timer;
 } SFPCtrl;
+
+SFPCtrl* sfpctrl;
 
 static const VMStateDescription sfp_vmstate = {
     .name = "sfp",
     .unmigratable = 1,
 };
 
-static uint64_t sfp_mmio_read(void *opaque, hwaddr addr, unsigned size) {
-  // SFPMBS *n = (SFPMBS *)opaque;
-  uint64_t val = 0;
-  ap_get_fuzz_data((uint8_t *)&val, addr, size);
-  // TODO: read from fuzz file @ offset addr and size
-  return val;
-}
+
+#define TYPE_SFP "sfp"
+#define SFP(obj) OBJECT_CHECK(SFPCtrl, (obj), TYPE_SFP)
 
 static void sfp_assert_irq(SFPCtrl *n) {
 #if 0
@@ -78,22 +75,63 @@ static void sfp_deassert_irq(SFPCtrl *n) {
 #endif
 }
 
+#if 0
+static void sfp_gen_irq(void *opaque) {
+  SFPCtrl *n = (SFPCtrl *)opaque;
+  if (ap_get_irq_status()) {
+    sfp_assert_irq(n);
+  } else {
+    sfp_deassert_irq(n);
+  }
+}
+#else
+void sfp_set_irq(int isset);
+void sfp_set_irq(int isset) {
+  static int sfp_irq_is_triggered;
+  if ((sfp_irq_is_triggered==1) && (isset==0)) {
+    sfp_deassert_irq(sfpctrl);
+    sfp_irq_is_triggered = 0;
+  } else if ((sfp_irq_is_triggered==0) && (isset==1)) {
+    sfp_irq_is_triggered = 1;
+    sfp_assert_irq(sfpctrl);
+  }
+}
+#endif
+
+#if 0
+static int sfp_vector_unmask(PCIDevice *dev, unsigned vector, MSIMessage msg) {
+  return 0;
+}
+
+static void sfp_vector_mask(PCIDevice *dev, unsigned vector) {}
+
+static void sfp_vector_poll(PCIDevice *dev, unsigned int vector_start,
+                            unsigned int vector_end) {}
+#endif
+
+static uint64_t sfp_mmio_read(void *opaque, hwaddr addr, unsigned size) {
+  // any bar access will reset IRQ
+  sfp_set_irq(0);
+  // SFPMBS *n = (SFPMBS *)opaque;
+  uint64_t val = 0;
+  ap_get_fuzz_data((uint8_t *)&val, addr, size);
+  // TODO: read from fuzz file @ offset addr and size
+  return val;
+}
+
+
 static void sfp_mmio_write(void *opaque, hwaddr addr, uint64_t data,
                            unsigned size) {
+  // any bar access will reset IRQ
+  sfp_set_irq(0);
   ap_set_fuzz_data(data, addr, size);
-  SFPMBS *n = (SFPMBS *)opaque;
-  SFPCtrl *ctrl = (SFPCtrl *)n->parent;
+  //SFPMBS *n = (SFPMBS *)opaque;
+  //SFPCtrl *ctrl = (SFPCtrl *)n->parent;
   // TODO - write the fuzz file or discard?
   // printf("sfp_mmio_write: addr %#lx size %d val=%#lx\n", addr, size, data);
   // uint8_t* val = (uint8_t*)&data;
   // memcpy(&(n->bar[addr]), val, size);
   //
-  // assert IRQ
-  static int startedirq;
-  if (!startedirq) {
-    startedirq = 1;
-    timer_mod(ctrl->timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + 30000000);
-  }
 }
 
 static const MemoryRegionOps sfp_mmio_ops = {
@@ -107,33 +145,9 @@ static const MemoryRegionOps sfp_mmio_ops = {
         },
 };
 
-#define TYPE_SFP "sfp"
-#define SFP(obj) OBJECT_CHECK(SFPCtrl, (obj), TYPE_SFP)
-
-static void sfp_gen_irq(void *opaque) {
-  SFPCtrl *n = (SFPCtrl *)opaque;
-  if (ap_get_irq_status()) {
-    sfp_assert_irq(n);
-  } else {
-    sfp_deassert_irq(n);
-  }
-  // schedule to trigger another irq
-  timer_mod(n->timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + 100000000);
-}
-
-#if 0
-static int sfp_vector_unmask(PCIDevice *dev, unsigned vector, MSIMessage msg) {
-  return 0;
-}
-
-static void sfp_vector_mask(PCIDevice *dev, unsigned vector) {}
-
-static void sfp_vector_poll(PCIDevice *dev, unsigned int vector_start,
-                            unsigned int vector_end) {}
-#endif
 static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
-
   SFPCtrl *n = SFP(pci_dev);
+  sfpctrl = n;
   for (int i = 0; i < ap_get_pci_bar_cnt(); i++) {
     if (i == 4)
       continue;
@@ -211,8 +225,6 @@ static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
     exit(-1);
   }
 #endif
-  printf("Create Timed IRQ\n");
-  n->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, sfp_gen_irq, n);
 
   printf("Create PCI-Express Setup\n");
 
