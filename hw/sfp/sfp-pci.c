@@ -109,40 +109,91 @@ static void sfp_vector_poll(PCIDevice *dev, unsigned int vector_start,
                             unsigned int vector_end) {}
 #endif
 
-static uint64_t sfp_mmio_read(void *opaque, hwaddr addr, unsigned size) {
-  // any bar access will reset IRQ
-  sfp_set_irq(0);
-  // SFPMBS *n = (SFPMBS *)opaque;
-  uint64_t val = 0;
-  ap_get_fuzz_data((uint8_t *)&val, addr, size);
-  // TODO: read from fuzz file @ offset addr and size
-  return val;
+/////////////////////////////////////////////////////////////////////////
+#define MMIO_CB(X) \
+static uint64_t sfp_mmio_read##X(void *opaque, hwaddr addr, unsigned size) { \
+  sfp_set_irq(0); \
+  uint64_t val = 0; \
+  ap_get_fuzz_data((uint8_t *)&val, addr, size, X); \
+  return val; \
+} \
+static void sfp_mmio_write##X(void *opaque, hwaddr addr, uint64_t data, \
+                           unsigned size) { \
+  sfp_set_irq(0); \
+  ap_set_fuzz_data(data, addr, size, X); \
 }
 
+MMIO_CB(0)
+MMIO_CB(1)
+MMIO_CB(2)
+MMIO_CB(3)
+MMIO_CB(4)
+MMIO_CB(5)
 
-static void sfp_mmio_write(void *opaque, hwaddr addr, uint64_t data,
-                           unsigned size) {
-  // any bar access will reset IRQ
-  sfp_set_irq(0);
-  ap_set_fuzz_data(data, addr, size);
-  //SFPMBS *n = (SFPMBS *)opaque;
-  //SFPCtrl *ctrl = (SFPCtrl *)n->parent;
-  // TODO - write the fuzz file or discard?
-  // printf("sfp_mmio_write: addr %#lx size %d val=%#lx\n", addr, size, data);
-  // uint8_t* val = (uint8_t*)&data;
-  // memcpy(&(n->bar[addr]), val, size);
-  //
-}
-
-static const MemoryRegionOps sfp_mmio_ops = {
-    .read = sfp_mmio_read,
-    .write = sfp_mmio_write,
+static const MemoryRegionOps sfp_mmio_ops[] = {
+  {
+    // bar0
+    .read = sfp_mmio_read0,
+    .write = sfp_mmio_write0,
     .endianness = DEVICE_LITTLE_ENDIAN,
     .impl =
         {
             .min_access_size = 1,
             .max_access_size = 8,
         },
+  }, {
+    // bar1
+    .read = sfp_mmio_read1,
+    .write = sfp_mmio_write1,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .impl =
+        {
+            .min_access_size = 1,
+            .max_access_size = 8,
+        },
+  },
+  {
+    // bar2
+    .read = sfp_mmio_read2,
+    .write = sfp_mmio_write2,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .impl =
+        {
+            .min_access_size = 1,
+            .max_access_size = 8,
+        },
+  }, {
+    // bar3
+    .read = sfp_mmio_read3,
+    .write = sfp_mmio_write3,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .impl =
+        {
+            .min_access_size = 1,
+            .max_access_size = 8,
+        },
+  },
+  {
+    // bar4
+    .read = sfp_mmio_read4,
+    .write = sfp_mmio_write4,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .impl =
+        {
+            .min_access_size = 1,
+            .max_access_size = 8,
+        },
+  }, {
+    // bar5
+    .read = sfp_mmio_read5,
+    .write = sfp_mmio_write5,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .impl =
+        {
+            .min_access_size = 1,
+            .max_access_size = 8,
+        },
+  }
 };
 
 static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
@@ -154,6 +205,7 @@ static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
     SFPMBS *sfpmbs = &(n->bars[i]);
     // FIXME: fix bar size
     int bar_size = ap_get_pci_bar_size(i);
+    // TODO: remove -- we don't really need to allocate here since we already have then in aplib
     uint8_t *bar = (uint8_t *)calloc(bar_size, 1);
     if (!bar) {
       printf("bar %d allocation failed!\n", i);
@@ -170,7 +222,7 @@ static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
 
     char name[16];
     sprintf(name, "sfp-%d", i);
-    memory_region_init_io(&sfpmbs->iomem, OBJECT(n), &sfp_mmio_ops, sfpmbs,
+    memory_region_init_io(&sfpmbs->iomem, OBJECT(n), &sfp_mmio_ops[i], sfpmbs,
                           name, bar_size);
     // register bar
     if (bartype != 0) {
