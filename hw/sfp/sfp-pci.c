@@ -201,9 +201,11 @@ static const MemoryRegionOps sfp_mmio_ops[] = {
 ///
 /// IRQ handler thread
 ///
-static void* sfp_irq_handler(void* data) {
+static void *sfp_irq_handler(void *data) {
   while (1) {
     if (ap_check_irq_request()) {
+      // usually device would fill buffer then assert irq, we assume this case
+      ap_fill_dma_buffer();
       sfp_set_irq(1);
     } else {
       sfp_set_irq(0);
@@ -312,7 +314,8 @@ static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
     printf("SFP is not connected to PCI Express bus, capability is limited\n");
   }
   // create IRQ thread
-  qemu_thread_create(&thread, "sfp-irq-handler", sfp_irq_handler, NULL, QEMU_THREAD_DETACHED);
+  qemu_thread_create(&thread, "sfp-irq-handler", sfp_irq_handler, NULL,
+                     QEMU_THREAD_DETACHED);
 
   printf("Done\n");
 }
