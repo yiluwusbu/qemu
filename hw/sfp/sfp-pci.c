@@ -195,9 +195,27 @@ static const MemoryRegionOps sfp_mmio_ops[] = {
                 .min_access_size = 1,
                 .max_access_size = 8,
             },
-    }};
+    },
+};
+
+///
+/// IRQ handler thread
+///
+static void* sfp_irq_handler(void* data) {
+  while (1) {
+    if (ap_check_irq_request()) {
+      sfp_set_irq(1);
+    } else {
+      sfp_set_irq(0);
+    }
+  }
+  return NULL;
+}
 
 static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
+  // thread for handle IRQ request from AP
+  QemuThread thread;
+
   SFPCtrl *n = SFP(pci_dev);
   sfpctrl = n;
   int msixBarIdx = ap_get_pci_msix_bar_idx();
@@ -260,11 +278,11 @@ static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
   pci_config_set_class(pci_conf, pciclass);
   pci_config_set_prog_interface(pci_conf, progif);
 
-  printf("Create MSIX bar\n");
   pci_conf[PCI_INTERRUPT_PIN] = 1;
   n->irq = pci_allocate_irq(pci_dev);
 
   if (msixBarIdx != -1) {
+    printf("Create MSIX bar\n");
     if (msix_init_exclusive_bar(pci_dev, 32, msixBarIdx, errp)) {
       printf("SFP:cannot init MSIX ");
       exit(-1);
@@ -293,6 +311,9 @@ static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
   } else {
     printf("SFP is not connected to PCI Express bus, capability is limited\n");
   }
+  // create IRQ thread
+  qemu_thread_create(&thread, "sfp-irq-handler", sfp_irq_handler, NULL, QEMU_THREAD_DETACHED);
+
   printf("Done\n");
 }
 
