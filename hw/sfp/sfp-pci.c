@@ -41,13 +41,12 @@ typedef struct SFPCtrl {
   qemu_irq irq;
 } SFPCtrl;
 
-SFPCtrl* sfpctrl;
+SFPCtrl *sfpctrl;
 
 static const VMStateDescription sfp_vmstate = {
     .name = "sfp",
     .unmigratable = 1,
 };
-
 
 #define TYPE_SFP "sfp"
 #define SFP(obj) OBJECT_CHECK(SFPCtrl, (obj), TYPE_SFP)
@@ -88,17 +87,17 @@ static void sfp_gen_irq(void *opaque) {
 void sfp_set_irq(int isset);
 void sfp_set_irq(int isset) {
   static int sfp_irq_is_triggered;
-  if ((sfp_irq_is_triggered==1) && (isset==0)) {
+  if ((sfp_irq_is_triggered == 1) && (isset == 0)) {
     sfp_deassert_irq(sfpctrl);
     sfp_irq_is_triggered = 0;
-  } else if ((sfp_irq_is_triggered==0) && (isset==1)) {
+  } else if ((sfp_irq_is_triggered == 0) && (isset == 1)) {
     sfp_irq_is_triggered = 1;
     sfp_assert_irq(sfpctrl);
   }
 }
 #endif
 
-#if 0
+#if 1
 static int sfp_vector_unmask(PCIDevice *dev, unsigned vector, MSIMessage msg) {
   return 0;
 }
@@ -110,18 +109,18 @@ static void sfp_vector_poll(PCIDevice *dev, unsigned int vector_start,
 #endif
 
 /////////////////////////////////////////////////////////////////////////
-#define MMIO_CB(X) \
-static uint64_t sfp_mmio_read##X(void *opaque, hwaddr addr, unsigned size) { \
-  sfp_set_irq(0); \
-  uint64_t val = 0; \
-  ap_get_fuzz_data((uint8_t *)&val, addr, size, X); \
-  return val; \
-} \
-static void sfp_mmio_write##X(void *opaque, hwaddr addr, uint64_t data, \
-                           unsigned size) { \
-  sfp_set_irq(0); \
-  ap_set_fuzz_data(data, addr, size, X); \
-}
+#define MMIO_CB(X)                                                             \
+  static uint64_t sfp_mmio_read##X(void *opaque, hwaddr addr, unsigned size) { \
+    sfp_set_irq(0);                                                            \
+    uint64_t val = 0;                                                          \
+    ap_get_fuzz_data((uint8_t *)&val, addr, size, X);                          \
+    return val;                                                                \
+  }                                                                            \
+  static void sfp_mmio_write##X(void *opaque, hwaddr addr, uint64_t data,      \
+                                unsigned size) {                               \
+    sfp_set_irq(0);                                                            \
+    ap_set_fuzz_data(data, addr, size, X);                                     \
+  }
 
 MMIO_CB(0)
 MMIO_CB(1)
@@ -131,81 +130,87 @@ MMIO_CB(4)
 MMIO_CB(5)
 
 static const MemoryRegionOps sfp_mmio_ops[] = {
-  {
-    // bar0
-    .read = sfp_mmio_read0,
-    .write = sfp_mmio_write0,
-    .endianness = DEVICE_LITTLE_ENDIAN,
-    .impl =
-        {
-            .min_access_size = 1,
-            .max_access_size = 8,
-        },
-  }, {
-    // bar1
-    .read = sfp_mmio_read1,
-    .write = sfp_mmio_write1,
-    .endianness = DEVICE_LITTLE_ENDIAN,
-    .impl =
-        {
-            .min_access_size = 1,
-            .max_access_size = 8,
-        },
-  },
-  {
-    // bar2
-    .read = sfp_mmio_read2,
-    .write = sfp_mmio_write2,
-    .endianness = DEVICE_LITTLE_ENDIAN,
-    .impl =
-        {
-            .min_access_size = 1,
-            .max_access_size = 8,
-        },
-  }, {
-    // bar3
-    .read = sfp_mmio_read3,
-    .write = sfp_mmio_write3,
-    .endianness = DEVICE_LITTLE_ENDIAN,
-    .impl =
-        {
-            .min_access_size = 1,
-            .max_access_size = 8,
-        },
-  },
-  {
-    // bar4
-    .read = sfp_mmio_read4,
-    .write = sfp_mmio_write4,
-    .endianness = DEVICE_LITTLE_ENDIAN,
-    .impl =
-        {
-            .min_access_size = 1,
-            .max_access_size = 8,
-        },
-  }, {
-    // bar5
-    .read = sfp_mmio_read5,
-    .write = sfp_mmio_write5,
-    .endianness = DEVICE_LITTLE_ENDIAN,
-    .impl =
-        {
-            .min_access_size = 1,
-            .max_access_size = 8,
-        },
-  }
-};
+    {
+        // bar0
+        .read = sfp_mmio_read0,
+        .write = sfp_mmio_write0,
+        .endianness = DEVICE_LITTLE_ENDIAN,
+        .impl =
+            {
+                .min_access_size = 1,
+                .max_access_size = 8,
+            },
+    },
+    {
+        // bar1
+        .read = sfp_mmio_read1,
+        .write = sfp_mmio_write1,
+        .endianness = DEVICE_LITTLE_ENDIAN,
+        .impl =
+            {
+                .min_access_size = 1,
+                .max_access_size = 8,
+            },
+    },
+    {
+        // bar2
+        .read = sfp_mmio_read2,
+        .write = sfp_mmio_write2,
+        .endianness = DEVICE_LITTLE_ENDIAN,
+        .impl =
+            {
+                .min_access_size = 1,
+                .max_access_size = 8,
+            },
+    },
+    {
+        // bar3
+        .read = sfp_mmio_read3,
+        .write = sfp_mmio_write3,
+        .endianness = DEVICE_LITTLE_ENDIAN,
+        .impl =
+            {
+                .min_access_size = 1,
+                .max_access_size = 8,
+            },
+    },
+    {
+        // bar4
+        .read = sfp_mmio_read4,
+        .write = sfp_mmio_write4,
+        .endianness = DEVICE_LITTLE_ENDIAN,
+        .impl =
+            {
+                .min_access_size = 1,
+                .max_access_size = 8,
+            },
+    },
+    {
+        // bar5
+        .read = sfp_mmio_read5,
+        .write = sfp_mmio_write5,
+        .endianness = DEVICE_LITTLE_ENDIAN,
+        .impl =
+            {
+                .min_access_size = 1,
+                .max_access_size = 8,
+            },
+    }};
 
 static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
   SFPCtrl *n = SFP(pci_dev);
   sfpctrl = n;
+  int msixBarIdx = ap_get_pci_msix_bar_idx();
   for (int i = 0; i < ap_get_pci_bar_cnt(); i++) {
-    if (i == 4)
+    if (i == msixBarIdx)
       continue;
     SFPMBS *sfpmbs = &(n->bars[i]);
     // FIXME: fix bar size
     int bar_size = ap_get_pci_bar_size(i);
-    // TODO: remove -- we don't really need to allocate here since we already have then in aplib
+    if (bar_size == 0)
+      continue;
+    // TODO: remove -- we don't really need to allocate here since we already
+    // have then in aplib
     uint8_t *bar = (uint8_t *)calloc(bar_size, 1);
     if (!bar) {
       printf("bar %d allocation failed!\n", i);
@@ -258,25 +263,25 @@ static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
   printf("Create MSIX bar\n");
   pci_conf[PCI_INTERRUPT_PIN] = 1;
   n->irq = pci_allocate_irq(pci_dev);
-#if 0
-  //TODO make this configurable
-  if (msix_init_exclusive_bar(pci_dev, 32, 4, errp)) {
-    printf("SFP:cannot init MSIX ");
-    exit(-1);
-    return;
-  }
-  for (int i = 0; i < 32; i++) {
-    if (msix_vector_use(pci_dev, i)) {
-      printf("SFP:cannot use MSIX %d\n", i);
+
+  if (msixBarIdx != -1) {
+    if (msix_init_exclusive_bar(pci_dev, 32, msixBarIdx, errp)) {
+      printf("SFP:cannot init MSIX ");
+      exit(-1);
+      return;
+    }
+    for (int i = 0; i < 32; i++) {
+      if (msix_vector_use(pci_dev, i)) {
+        printf("SFP:cannot use MSIX %d\n", i);
+        exit(-1);
+      }
+    }
+    if (msix_set_vector_notifiers(pci_dev, sfp_vector_unmask, sfp_vector_mask,
+                                  sfp_vector_poll)) {
+      printf("SFP: cannot set msix notifier\n");
       exit(-1);
     }
   }
-  if (msix_set_vector_notifiers(pci_dev, sfp_vector_unmask, sfp_vector_mask,
-                                sfp_vector_poll)) {
-    printf("SFP: cannot set msix notifier\n");
-    exit(-1);
-  }
-#endif
 
   printf("Create PCI-Express Setup\n");
 
@@ -357,7 +362,6 @@ static void sfp_class_init(ObjectClass *oc, void *data) {
   set_bit(DEVICE_CATEGORY_MISC, dc->categories);
   dc->desc = ap_get_dev_name();
   dc->vmsd = &sfp_vmstate;
-
 }
 
 static void sfp_instance_init(Object *obj) {}
