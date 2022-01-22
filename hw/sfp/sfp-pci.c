@@ -265,7 +265,7 @@ static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
 
   // pcie_endpoint_cap_init(pci_dev, 0x80);
   // specify class id here
-  const char *spciclass = getenv("PCI_CLASS");
+  const char *spciclass = getenv("SFP_PCI_CLASS");
   uint32_t udata;
   if (spciclass == NULL) {
     udata = ap_get_pci_class();
@@ -332,8 +332,8 @@ static void sfp_class_init(ObjectClass *oc, void *data) {
   PCIDeviceClass *pc = PCI_DEVICE_CLASS(oc);
   uint16_t sfpvid = 0x8086;
   uint16_t sfppid = 0x8086;
-  const char *svid = getenv("SFPVID");
-  const char *spid = getenv("SFPPID");
+  const char *svid = getenv("SFP_VID");
+  const char *spid = getenv("SFP_PID");
   if (svid != NULL)
     sscanf(svid, "%hx", &sfpvid);
   else
