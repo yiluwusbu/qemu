@@ -533,7 +533,7 @@ static MemTxResult access_with_adjusted_size(hwaddr addr,
     unsigned access_size;
     unsigned i;
     MemTxResult r = MEMTX_OK;
-
+   
     if (!access_size_min) {
         access_size_min = 1;
     }
@@ -542,6 +542,7 @@ static MemTxResult access_with_adjusted_size(hwaddr addr,
     }
 
     /* FIXME: support unaligned access? */
+    
     access_size = MAX(MIN(size, access_size_max), access_size_min);
     access_mask = MAKE_64BIT_MASK(0, access_size * 8);
     if (memory_region_big_endian(mr)) {

@@ -41,7 +41,7 @@
 
 #include "pcnet.h"
 #include "qom/object.h"
-
+#include "aplib.h"
 //#define PCNET_DEBUG
 //#define PCNET_DEBUG_IO
 //#define PCNET_DEBUG_BCR
@@ -86,28 +86,35 @@ static uint64_t pcnet_ioport_read(void *opaque, hwaddr addr,
                                   unsigned size)
 {
     PCNetState *d = opaque;
-
+    uint64_t qemu_ret = ((uint64_t)1 << (size * 8)) - 1;
+    uint64_t afl_ret = 0;
     trace_pcnet_ioport_read(opaque, addr, size);
+    
     if (addr < 0x10) {
         if (!BCR_DWIO(d) && size == 1) {
-            return pcnet_aprom_readb(d, addr);
+            qemu_ret = pcnet_aprom_readb(d, addr);
         } else if (!BCR_DWIO(d) && (addr & 1) == 0 && size == 2) {
-            return pcnet_aprom_readb(d, addr) |
+             qemu_ret =  pcnet_aprom_readb(d, addr) |
                    (pcnet_aprom_readb(d, addr + 1) << 8);
         } else if (BCR_DWIO(d) && (addr & 3) == 0 && size == 4) {
-            return pcnet_aprom_readb(d, addr) |
+             qemu_ret =  pcnet_aprom_readb(d, addr) |
                    (pcnet_aprom_readb(d, addr + 1) << 8) |
                    (pcnet_aprom_readb(d, addr + 2) << 16) |
                    (pcnet_aprom_readb(d, addr + 3) << 24);
         }
     } else {
         if (size == 2) {
-            return pcnet_ioport_readw(d, addr);
+             qemu_ret =  pcnet_ioport_readw(d, addr);
         } else if (size == 4) {
-            return pcnet_ioport_readl(d, addr);
+             qemu_ret =  pcnet_ioport_readl(d, addr);
         }
     }
-    return ((uint64_t)1 << (size * 8)) - 1;
+
+    if (ap_qemu_mmio_read((uint8_t*)&afl_ret, addr, (size_t)size, 0) == -1) {
+        return qemu_ret;
+    } else {
+        return afl_ret;
+    }
 }
 
 static void pcnet_ioport_write(void *opaque, hwaddr addr,
@@ -169,7 +176,7 @@ static const MemoryRegionOps pcnet_mmio_ops = {
 static void pci_physical_memory_write(void *dma_opaque, hwaddr addr,
                                       uint8_t *buf, int len, int do_bswap)
 {
-    pci_dma_write(dma_opaque, addr, buf, len);
+    fuzz_pci_dma_write(dma_opaque, addr, buf, len);
 }
 
 static void pci_physical_memory_read(void *dma_opaque, hwaddr addr,

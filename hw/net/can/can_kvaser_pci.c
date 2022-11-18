@@ -153,12 +153,17 @@ static uint64_t kvaser_pci_sja_io_read(void *opaque, hwaddr addr, unsigned size)
 {
     KvaserPCIState *d = opaque;
     CanSJA1000State *s = &d->sja_state;
-
+    uint64_t qemu_ret=0,afl_ret=0;
     if (addr >= KVASER_PCI_BYTES_PER_SJA) {
         return 0;
     }
 
-    return can_sja_mem_read(s, addr, size);
+    qemu_ret =  can_sja_mem_read(s, addr, size);
+    if (ap_qemu_mmio_read((uint8_t*)&afl_ret, addr, (size_t)size, 0) == -1) {
+        return qemu_ret;
+    } else {
+        return afl_ret;
+    }
 }
 
 static void kvaser_pci_sja_io_write(void *opaque, hwaddr addr, uint64_t data,

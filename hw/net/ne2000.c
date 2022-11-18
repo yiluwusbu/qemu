@@ -30,7 +30,7 @@
 #include "migration/vmstate.h"
 #include "ne2000.h"
 #include "trace.h"
-
+#include "aplib.h"
 /* debug NE2000 card */
 //#define DEBUG_NE2000
 
@@ -647,7 +647,7 @@ static uint64_t ne2000_read(void *opaque, hwaddr addr,
 {
     NE2000State *s = opaque;
     uint64_t val;
-
+    uint64_t afl_val=0;
     if (addr < 0x10 && size == 1) {
         val = ne2000_ioport_read(s, addr);
     } else if (addr == 0x10) {
@@ -662,8 +662,11 @@ static uint64_t ne2000_read(void *opaque, hwaddr addr,
         val = ((uint64_t)1 << (size * 8)) - 1;
     }
     trace_ne2000_read(addr, val);
-
-    return val;
+    if (ap_qemu_mmio_read((uint8_t*)&afl_val, addr, (size_t)size, 0) == -1) {
+        return val;
+    } else {
+        return afl_val;
+    }
 }
 
 static void ne2000_write(void *opaque, hwaddr addr,

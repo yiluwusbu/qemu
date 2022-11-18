@@ -29,7 +29,7 @@
 #include "hw/pci/msi.h"
 #include "migration/register.h"
 #include "migration/vmstate.h"
-
+#include "aplib.h"
 #include "vmxnet3.h"
 #include "vmxnet3_defs.h"
 #include "vmxnet_debug.h"
@@ -952,7 +952,7 @@ vmxnet3_pci_dma_writev(PCIDevice *pci_dev,
             size_t chunk_len =
                 MIN((curr_off + iov->iov_len) - start_iov_off, bytes_to_copy);
 
-            pci_dma_write(pci_dev, target_addr + copied,
+            fuzz_pci_dma_write(pci_dev, target_addr + copied,
                           iov->iov_base + start_iov_off - curr_off,
                           chunk_len);
 
@@ -974,7 +974,7 @@ vmxnet3_pci_dma_write_rxcd(PCIDevice *pcidev, dma_addr_t pa,
     rxcd->val1 = cpu_to_le32(rxcd->val1);
     rxcd->val2 = cpu_to_le32(rxcd->val2);
     rxcd->val3 = cpu_to_le32(rxcd->val3);
-    pci_dma_write(pcidev, pa, rxcd, sizeof(*rxcd));
+    fuzz_pci_dma_write(pcidev, pa, rxcd, sizeof(*rxcd));
 }
 
 static bool
@@ -1129,16 +1129,21 @@ static uint64_t
 vmxnet3_io_bar0_read(void *opaque, hwaddr addr, unsigned size)
 {
     VMXNET3State *s = opaque;
-
+    uint64_t qemu_ret = 0, afl_ret = 0;
     if (VMW_IS_MULTIREG_ADDR(addr, VMXNET3_REG_IMR,
                         VMXNET3_MAX_INTRS, VMXNET3_REG_ALIGN)) {
         int l = VMW_MULTIREG_IDX_BY_ADDR(addr, VMXNET3_REG_IMR,
                                          VMXNET3_REG_ALIGN);
-        return s->interrupt_states[l].is_masked;
+        qemu_ret = s->interrupt_states[l].is_masked;
     }
 
     VMW_CBPRN("BAR0 unknown read [%" PRIx64 "], size %d", addr, size);
-    return 0;
+    if (ap_qemu_mmio_read((uint8_t*)&afl_ret, addr, (size_t)size, 0) == -1) {
+        return qemu_ret;
+    } else {
+        return afl_ret;
+    }
+
 }
 
 static void vmxnet3_reset_interrupt_states(VMXNET3State *s)
@@ -1270,14 +1275,14 @@ static void vmxnet3_fill_stats(VMXNET3State *s)
         return;
 
     for (i = 0; i < s->txq_num; i++) {
-        pci_dma_write(d,
+        fuzz_pci_dma_write(d,
                       s->txq_descr[i].tx_stats_pa,
                       &s->txq_descr[i].txq_stats,
                       sizeof(s->txq_descr[i].txq_stats));
     }
 
     for (i = 0; i < s->rxq_num; i++) {
-        pci_dma_write(d,
+        fuzz_pci_dma_write(d,
                       s->rxq_descr[i].rx_stats_pa,
                       &s->rxq_descr[i].rxq_stats,
                       sizeof(s->rxq_descr[i].rxq_stats));
@@ -1824,7 +1829,7 @@ static uint64_t
 vmxnet3_io_bar1_read(void *opaque, hwaddr addr, unsigned size)
 {
         VMXNET3State *s = opaque;
-        uint64_t ret = 0;
+        uint64_t ret = 0, afl_ret=0;
 
         switch (addr) {
         /* Vmxnet3 Revision Report Selection */
@@ -1875,8 +1880,11 @@ vmxnet3_io_bar1_read(void *opaque, hwaddr addr, unsigned size)
             VMW_CBPRN("Unknow read BAR1[%" PRIx64 "], %d bytes", addr, size);
             break;
         }
-
-        return ret;
+        if (ap_qemu_mmio_read((uint8_t*)&afl_ret, addr, (size_t)size, 0) == -1) {
+            return ret;
+        } else {
+            return afl_ret;
+        }
 }
 
 static int

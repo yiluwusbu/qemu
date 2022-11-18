@@ -201,22 +201,22 @@ static const MemoryRegionOps sfp_mmio_ops[] = {
 ///
 /// IRQ handler thread
 ///
-static void *sfp_irq_handler(void *data) {
-  while (1) {
-    if (ap_check_irq_request()) {
-      // usually device would fill buffer then assert irq, we assume this case
-      ap_fill_dma_buffer();
-      sfp_set_irq(1);
-    } else {
-      sfp_set_irq(0);
-    }
-  }
-  return NULL;
-}
+// static void *sfp_irq_handler(void *data) {
+//   while (1) {
+//     if (ap_check_irq_request()) {
+//       // usually device would fill buffer then assert irq, we assume this case
+//       ap_fill_dma_buffer();
+//       sfp_set_irq(1);
+//     } else {
+//       sfp_set_irq(0);
+//     }
+//   }
+//   return NULL;
+// }
 
 static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
   // thread for handle IRQ request from AP
-  QemuThread thread;
+  //QemuThread thread;
 
   SFPCtrl *n = SFP(pci_dev);
   sfpctrl = n;
@@ -230,7 +230,7 @@ static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
     if (bar_size == 0)
       continue;
     // TODO: remove -- we don't really need to allocate here since we already
-    // have then in aplib
+    // have them in aplib
     uint8_t *bar = (uint8_t *)calloc(bar_size, 1);
     if (!bar) {
       printf("bar %d allocation failed!\n", i);
@@ -314,8 +314,8 @@ static void sfp_realize(PCIDevice *pci_dev, Error **errp) {
     printf("SFP is not connected to PCI Express bus, capability is limited\n");
   }
   // create IRQ thread
-  qemu_thread_create(&thread, "sfp-irq-handler", sfp_irq_handler, NULL,
-                     QEMU_THREAD_DETACHED);
+  // qemu_thread_create(&thread, "sfp-irq-handler", sfp_irq_handler, NULL,
+  //                    QEMU_THREAD_DETACHED);
 
   printf("Done\n");
 }

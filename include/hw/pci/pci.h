@@ -10,6 +10,7 @@
 #include "hw/pci/pcie.h"
 #include "qom/object.h"
 
+#include "aplib.h"
 extern bool pci_available;
 
 /* PCI bus */
@@ -884,6 +885,21 @@ static inline void pci_dma_sglist_init(QEMUSGList *qsg, PCIDevice *dev,
 {
     qemu_sglist_init(qsg, DEVICE(dev), alloc_hint, pci_get_address_space(dev));
 }
+
+/* Yilun Wu */
+static inline int fuzz_pci_dma_write(PCIDevice *dev, dma_addr_t addr,
+                                const void *buf, dma_addr_t len)
+{
+    // mutate data
+    uint8_t* mut_data = malloc(len);
+    memcpy(mut_data, buf, len);
+    // pick one and set it to random value
+    ap_qemu_fuzz_dma_generic(mut_data, len);
+    int ret = pci_dma_write(dev, addr, (void *) mut_data, len);
+    free(mut_data);
+    return ret;
+}
+
 
 extern const VMStateDescription vmstate_pci_device;
 
