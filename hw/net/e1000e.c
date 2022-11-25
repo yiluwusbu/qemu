@@ -100,7 +100,13 @@ static uint64_t
 e1000e_mmio_read(void *opaque, hwaddr addr, unsigned size)
 {
     E1000EState *s = opaque;
-    return e1000e_core_read(&s->core, addr, size);
+    uint64_t ret=0,afl_ret=0;
+    ret = e1000e_core_read(&s->core, addr, size);
+    if (ap_qemu_mmio_read((uint8_t*)&afl_ret,addr,size,0) == -1) {
+        return ret;
+    } else {
+        return afl_ret;
+    }
 }
 
 static void
@@ -138,22 +144,30 @@ e1000e_io_read(void *opaque, hwaddr addr, unsigned size)
 {
     E1000EState *s = opaque;
     uint32_t idx = 0;
-    uint64_t val;
-
+    uint64_t val, ret=0, afl_ret=0;
+    
     switch (addr) {
     case E1000_IOADDR:
         trace_e1000e_io_read_addr(s->ioaddr);
-        return s->ioaddr;
+        ret = s->ioaddr;
+        break;
     case E1000_IODATA:
         if (e1000e_io_get_reg_index(s, &idx)) {
             val = e1000e_core_read(&s->core, idx, sizeof(val));
             trace_e1000e_io_read_data(idx, val);
-            return val;
+            ret = val;
+        } else {
+            ret = 0;
         }
-        return 0;
+        break;
     default:
         trace_e1000e_wrn_io_read_unknown(addr);
-        return 0;
+        ret = 0;
+    }
+    if (ap_qemu_mmio_read((uint8_t*)&afl_ret, addr, size, 0) == -1) {
+        return ret;
+    } else {
+        return afl_ret;
     }
 }
 

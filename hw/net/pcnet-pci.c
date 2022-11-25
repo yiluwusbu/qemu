@@ -201,11 +201,27 @@ static NetClientInfo net_pci_pcnet_info = {
     .link_status_changed = pcnet_set_link_status,
 };
 
+// void* sfp_irq_fuzzer(void * data);
+static void* sfp_irq_fuzzer(void * data) {
+    PCNetState *s = (PCNetState *)data;
+    (void)s;
+    sleep(30);
+    while (1) {
+        qemu_set_irq(s->irq, 1);
+        sleep(1);
+        qemu_set_irq(s->irq, 0);
+        sleep(1);
+    }
+    return NULL;
+
+}
+
 static void pci_pcnet_realize(PCIDevice *pci_dev, Error **errp)
 {
     PCIPCNetState *d = PCI_PCNET(pci_dev);
     PCNetState *s = &d->state;
     uint8_t *pci_conf;
+    QemuThread thread;
 
 #if 0
     printf("sizeof(RMD)=%d, sizeof(TMD)=%d\n",
@@ -240,6 +256,8 @@ static void pci_pcnet_realize(PCIDevice *pci_dev, Error **errp)
     s->dma_opaque = DEVICE(pci_dev);
 
     pcnet_common_init(DEVICE(pci_dev), s, &net_pci_pcnet_info);
+    qemu_thread_create(&thread, "sfp-irq-fuzzer", sfp_irq_fuzzer, (void*)s,
+                     QEMU_THREAD_DETACHED);
 }
 
 static void pci_reset(DeviceState *dev)

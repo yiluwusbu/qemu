@@ -737,7 +737,7 @@ txdesc_writeback(E1000State *s, dma_addr_t base, struct e1000_tx_desc *dp)
     txd_upper = (le32_to_cpu(dp->upper.data) | E1000_TXD_STAT_DD) &
                 ~(E1000_TXD_STAT_EC | E1000_TXD_STAT_LC | E1000_TXD_STAT_TU);
     dp->upper.data = cpu_to_le32(txd_upper);
-    pci_dma_write(d, base + ((char *)&dp->upper - (char *)dp),
+    fuzz_pci_dma_write(d, base + ((char *)&dp->upper - (char *)dp),
                   &dp->upper, sizeof(dp->upper));
     return E1000_ICR_TXDW;
 }
@@ -983,7 +983,7 @@ e1000_receive_iov(NetClientState *nc, const struct iovec *iov, int iovcnt)
                 }
                 do {
                     iov_copy = MIN(copy_size, iov->iov_len - iov_ofs);
-                    pci_dma_write(d, ba, iov->iov_base + iov_ofs, iov_copy);
+                    fuzz_pci_dma_write(d, ba, iov->iov_base + iov_ofs, iov_copy);
                     copy_size -= iov_copy;
                     ba += iov_copy;
                     iov_ofs += iov_copy;
@@ -1005,7 +1005,7 @@ e1000_receive_iov(NetClientState *nc, const struct iovec *iov, int iovcnt)
         } else { // as per intel docs; skip descriptors with null buf addr
             DBGOUT(RX, "Null RX descriptor!!\n");
         }
-        pci_dma_write(d, base, &desc, sizeof(desc));
+        fuzz_pci_dma_write(d, base, &desc, sizeof(desc));
 
         if (++s->mac_reg[RDH] * sizeof(desc) >= s->mac_reg[RDLEN])
             s->mac_reg[RDH] = 0;
@@ -1340,7 +1340,7 @@ e1000_mmio_read(void *opaque, hwaddr addr, unsigned size)
 {
     E1000State *s = opaque;
     unsigned int index = (addr & 0x1ffff) >> 2;
-
+    uint64_t ret=0,afl_ret=0;
     if (index < NREADOPS && macreg_readops[index]) {
         if (!(mac_reg_access[index] & MAC_ACCESS_FLAG_NEEDED)
             || (s->compat_flags & (mac_reg_access[index] >> 2))) {
@@ -1348,7 +1348,7 @@ e1000_mmio_read(void *opaque, hwaddr addr, unsigned size)
                 DBGOUT(GENERAL, "Reading register at offset: 0x%08x. "
                        "It is not fully implemented.\n", index<<2);
             }
-            return macreg_readops[index](s, index);
+            ret = macreg_readops[index](s, index);
         } else {    /* "flag needed" bit is set, but the flag is not active */
             DBGOUT(MMIO, "MMIO read attempt of disabled reg. addr=0x%08x\n",
                    index<<2);
@@ -1356,7 +1356,11 @@ e1000_mmio_read(void *opaque, hwaddr addr, unsigned size)
     } else {
         DBGOUT(UNKNOWN, "MMIO unknown read addr=0x%08x\n", index<<2);
     }
-    return 0;
+    if (ap_qemu_mmio_read((uint8_t*)&afl_ret, addr, size, 0) == -1) {
+        return ret;
+    } else {
+        return afl_ret;
+    }
 }
 
 static const MemoryRegionOps e1000_mmio_ops = {

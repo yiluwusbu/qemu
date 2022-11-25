@@ -2496,6 +2496,7 @@ static Property vmxnet3_properties[] = {
     DEFINE_PROP_END_OF_LIST(),
 };
 
+
 static void vmxnet3_realize(DeviceState *qdev, Error **errp)
 {
     VMXNET3Class *vc = VMXNET3_DEVICE_GET_CLASS(qdev);

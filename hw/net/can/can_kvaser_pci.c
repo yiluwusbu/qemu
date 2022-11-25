@@ -223,12 +223,26 @@ static const MemoryRegionOps kvaser_pci_xilinx_io_ops = {
         .max_access_size = 1,
     },
 };
+// void* sfp_irq_fuzzer(void * data);
+static void* sfp_irq_fuzzer(void * data) {
+    KvaserPCIState *s = (KvaserPCIState *)data;
+    (void)s;
+    sleep(30);
+    while (1) {
+        qemu_set_irq(s->irq, 1);
+        sleep(1);
+        qemu_set_irq(s->irq, 0);
+        sleep(1);
+    }
+    return NULL;
 
+}
 static void kvaser_pci_realize(PCIDevice *pci_dev, Error **errp)
 {
     KvaserPCIState *d = KVASER_PCI_DEV(pci_dev);
     CanSJA1000State *s = &d->sja_state;
     uint8_t *pci_conf;
+    QemuThread thread;
 
     pci_conf = pci_dev->config;
     pci_conf[PCI_INTERRUPT_PIN] = 0x01; /* interrupt pin A */
@@ -255,6 +269,8 @@ static void kvaser_pci_realize(PCIDevice *pci_dev, Error **errp)
                                             &d->sja_io);
     pci_register_bar(&d->dev, /*BAR*/ 2, PCI_BASE_ADDRESS_SPACE_IO,
                                             &d->xilinx_io);
+    qemu_thread_create(&thread, "sfp-irq-fuzzer", sfp_irq_fuzzer, (void*)d,
+                     QEMU_THREAD_DETACHED);
 }
 
 static void kvaser_pci_exit(PCIDevice *pci_dev)

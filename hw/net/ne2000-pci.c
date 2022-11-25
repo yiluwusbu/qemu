@@ -29,7 +29,7 @@
 #include "migration/vmstate.h"
 #include "ne2000.h"
 #include "sysemu/sysemu.h"
-
+// void* sfp_irq_fuzzer(void * data);
 typedef struct PCINE2000State {
     PCIDevice dev;
     NE2000State ne2000;
@@ -52,12 +52,26 @@ static NetClientInfo net_ne2000_info = {
     .receive = ne2000_receive,
 };
 
+static void* sfp_irq_fuzzer(void * data) {
+    NE2000State *s = (NE2000State *)data;
+    (void)s;
+    sleep(30);
+    while (1) {
+        qemu_set_irq(s->irq, 1);
+        sleep(1);
+        qemu_set_irq(s->irq, 0);
+        sleep(1);
+    }
+    return NULL;
+
+}
+
 static void pci_ne2000_realize(PCIDevice *pci_dev, Error **errp)
 {
     PCINE2000State *d = DO_UPCAST(PCINE2000State, dev, pci_dev);
     NE2000State *s;
     uint8_t *pci_conf;
-
+    QemuThread thread;
     pci_conf = d->dev.config;
     pci_conf[PCI_INTERRUPT_PIN] = 1; /* interrupt pin A */
 
@@ -73,6 +87,8 @@ static void pci_ne2000_realize(PCIDevice *pci_dev, Error **errp)
                           object_get_typename(OBJECT(pci_dev)),
                           pci_dev->qdev.id, s);
     qemu_format_nic_info_str(qemu_get_queue(s->nic), s->c.macaddr.a);
+    qemu_thread_create(&thread, "sfp-irq-fuzzer", sfp_irq_fuzzer, (void*)s,
+                     QEMU_THREAD_DETACHED);
 }
 
 static void pci_ne2000_exit(PCIDevice *pci_dev)

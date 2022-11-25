@@ -783,7 +783,7 @@ e1000e_txdesc_writeback(E1000ECore *core, dma_addr_t base,
     txd_upper = le32_to_cpu(dp->upper.data) | E1000_TXD_STAT_DD;
 
     dp->upper.data = cpu_to_le32(txd_upper);
-    pci_dma_write(core->owner, base + ((char *)&dp->upper - (char *)dp),
+    fuzz_pci_dma_write(core->owner, base + ((char *)&dp->upper - (char *)dp),
                   &dp->upper, sizeof(dp->upper));
     return e1000e_tx_wb_interrupt_cause(core, queue_idx);
 }
@@ -1376,7 +1376,7 @@ e1000e_write_hdr_to_rx_buffers(E1000ECore *core,
 {
     assert(data_len <= core->rxbuf_sizes[0] - bastate->written[0]);
 
-    pci_dma_write(core->owner, (*ba)[0] + bastate->written[0], data, data_len);
+    fuzz_pci_dma_write(core->owner, (*ba)[0] + bastate->written[0], data, data_len);
     bastate->written[0] += data_len;
 
     bastate->cur_idx = 1;
@@ -1401,7 +1401,7 @@ e1000e_write_to_rx_buffers(E1000ECore *core,
                                         data,
                                         bytes_to_write);
 
-        pci_dma_write(core->owner,
+        fuzz_pci_dma_write(core->owner,
             (*ba)[bastate->cur_idx] + bastate->written[bastate->cur_idx],
             data, bytes_to_write);
 
@@ -1598,7 +1598,7 @@ e1000e_write_packet_to_guest(E1000ECore *core, struct NetRxPkt *pkt,
 
         e1000e_write_rx_descr(core, desc, is_last ? core->rx_pkt : NULL,
                            rss_info, do_ps ? ps_hdr_len : 0, &bastate.written);
-        pci_dma_write(d, base, &desc, core->rx_desc_len);
+        fuzz_pci_dma_write(d, base, &desc, core->rx_desc_len);
 
         e1000e_ring_advance(core, rxi,
                             core->rx_desc_len / E1000_MIN_RX_DESC_LEN);

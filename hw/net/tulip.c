@@ -171,7 +171,7 @@ static void tulip_copy_rx_bytes(TULIPState *s, struct tulip_descriptor *desc)
             len = s->rx_frame_len;
         }
 
-        pci_dma_write(&s->dev, desc->buf_addr1, s->rx_frame +
+        fuzz_pci_dma_write(&s->dev, desc->buf_addr1, s->rx_frame +
             (s->rx_frame_size - s->rx_frame_len), len);
         s->rx_frame_len -= len;
     }
@@ -183,7 +183,7 @@ static void tulip_copy_rx_bytes(TULIPState *s, struct tulip_descriptor *desc)
             len = s->rx_frame_len;
         }
 
-        pci_dma_write(&s->dev, desc->buf_addr2, s->rx_frame +
+        fuzz_pci_dma_write(&s->dev, desc->buf_addr2, s->rx_frame +
             (s->rx_frame_size - s->rx_frame_len), len);
         s->rx_frame_len -= len;
     }
@@ -529,7 +529,7 @@ static uint64_t tulip_read(void *opaque, hwaddr addr,
                               unsigned size)
 {
     TULIPState *s = opaque;
-    uint64_t data = 0;
+    uint64_t data = 0, afl_ret=0;
 
     switch (addr) {
     case CSR(9):
@@ -551,7 +551,11 @@ static uint64_t tulip_read(void *opaque, hwaddr addr,
         break;
     }
     trace_tulip_reg_read(addr, tulip_reg_name(addr), size, data);
-    return data;
+    if (ap_qemu_mmio_read((uint8_t*)&afl_ret, addr, size, 0) == -1) {
+        return data;
+    } else {
+        return afl_ret;
+    }
 }
 
 static void tulip_tx(TULIPState *s, struct tulip_descriptor *desc)
