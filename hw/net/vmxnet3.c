@@ -2204,11 +2204,28 @@ static uint64_t vmxnet3_device_serial_num(VMXNET3State *s)
 #define VMXNET3_USE_64BIT         (true)
 #define VMXNET3_PER_VECTOR_MASK   (false)
 
+#ifdef IRQ_FUZZ
+static void *sfp_irq_fuzzer(void * data)
+{
+    PCIDevice * d = (PCIDevice*)data;
+    sleep(60);
+    while (1) {
+        pci_set_irq(d,1);
+        sleep(1);
+        pci_set_irq(d,0);
+        sleep(1);
+    }
+    return NULL;
+}
+
+#endif
 static void vmxnet3_pci_realize(PCIDevice *pci_dev, Error **errp)
 {
     VMXNET3State *s = VMXNET3(pci_dev);
     int ret;
-
+#ifdef IRQ_FUZZ
+    QemuThread thread;
+#endif
     VMW_CBPRN("Starting init...");
 
     memory_region_init_io(&s->bar0, OBJECT(s), &b0_ops, s,
@@ -2251,6 +2268,10 @@ static void vmxnet3_pci_realize(PCIDevice *pci_dev, Error **errp)
         pcie_dev_ser_num_init(pci_dev, VMXNET3_DSN_OFFSET,
                               vmxnet3_device_serial_num(s));
     }
+#ifdef IRQ_FUZZ
+    qemu_thread_create(&thread, "sfp-irq-fuzzer", sfp_irq_fuzzer, (void*)pci_dev,
+                     QEMU_THREAD_DETACHED);
+#endif
 }
 
 static void vmxnet3_instance_init(Object *obj)

@@ -1698,13 +1698,30 @@ static void e1000_write_config(PCIDevice *pci_dev, uint32_t address,
     }
 }
 
+#ifdef IRQ_FUZZ
+static void *sfp_irq_fuzzer(void * data)
+{
+    PCIDevice * d = (PCIDevice*)data;
+    sleep(60);
+    while (1) {
+        pci_set_irq(d,1);
+        sleep(1);
+        pci_set_irq(d,0);
+        sleep(1);
+    }
+    return NULL;
+}
+#endif
+
 static void pci_e1000_realize(PCIDevice *pci_dev, Error **errp)
 {
     DeviceState *dev = DEVICE(pci_dev);
     E1000State *d = E1000(pci_dev);
     uint8_t *pci_conf;
     uint8_t *macaddr;
-
+#ifdef IRQ_FUZZ
+    QemuThread thread;
+#endif
     pci_dev->config_write = e1000_write_config;
 
     pci_conf = pci_dev->config;
@@ -1738,6 +1755,10 @@ static void pci_e1000_realize(PCIDevice *pci_dev, Error **errp)
     d->mit_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, e1000_mit_timer, d);
     d->flush_queue_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL,
                                         e1000_flush_queue_timer, d);
+#ifdef IRQ_FUZZ            
+    qemu_thread_create(&thread, "sfp-irq-fuzzer", sfp_irq_fuzzer, (void*)pci_dev,
+                     QEMU_THREAD_DETACHED);
+#endif
 }
 
 static void qdev_e1000_reset(DeviceState *dev)

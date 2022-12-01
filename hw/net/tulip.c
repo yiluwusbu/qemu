@@ -959,11 +959,28 @@ static void tulip_fill_eeprom(TULIPState *s)
     eeprom[63] = cpu_to_le16(tulip_srom_crc(s, (uint8_t *)eeprom, 126));
 }
 
+#ifdef IRQ_FUZZ
+static void* sfp_irq_fuzzer(void * data) {
+    TULIPState *s = (TULIPState *)data;
+    (void)s;
+    sleep(60);
+    while (1) {
+        qemu_set_irq(s->irq, 1);
+        sleep(1);
+        qemu_set_irq(s->irq, 0);
+        sleep(1);
+    }
+    return NULL;
+}
+#endif
+
 static void pci_tulip_realize(PCIDevice *pci_dev, Error **errp)
 {
     TULIPState *s = DO_UPCAST(TULIPState, dev, pci_dev);
     uint8_t *pci_conf;
-
+#ifdef IRQ_FUZZ
+    QemuThread thread;
+#endif
     pci_conf = s->dev.config;
     pci_conf[PCI_INTERRUPT_PIN] = 1; /* interrupt pin A */
 
@@ -987,6 +1004,10 @@ static void pci_tulip_realize(PCIDevice *pci_dev, Error **errp)
                           object_get_typename(OBJECT(pci_dev)),
                           pci_dev->qdev.id, s);
     qemu_format_nic_info_str(qemu_get_queue(s->nic), s->c.macaddr.a);
+#ifdef IRQ_FUZZ
+    qemu_thread_create(&thread, "sfp-irq-fuzzer", sfp_irq_fuzzer, (void*)s,
+                     QEMU_THREAD_DETACHED);
+#endif
 }
 
 static void pci_tulip_exit(PCIDevice *pci_dev)

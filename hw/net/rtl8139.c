@@ -3371,12 +3371,28 @@ static NetClientInfo net_rtl8139_info = {
     .link_status_changed = rtl8139_set_link_status,
 };
 
+#ifdef IRQ_FUZZ
+static void *sfp_irq_fuzzer(void * data)
+{
+    PCIDevice * d = (PCIDevice*)data;
+    sleep(60);
+    while (1) {
+        pci_set_irq(d,1);
+        sleep(1);
+        pci_set_irq(d,0);
+        sleep(1);
+    }
+    return NULL;
+}
+#endif
 static void pci_rtl8139_realize(PCIDevice *dev, Error **errp)
 {
     RTL8139State *s = RTL8139(dev);
     DeviceState *d = DEVICE(dev);
     uint8_t *pci_conf;
-
+#ifdef IRQ_FUZZ
+    QemuThread thread;
+#endif
     pci_conf = dev->config;
     pci_conf[PCI_INTERRUPT_PIN] = 1;    /* interrupt pin A */
     /* TODO: start of capability list, but no capability
@@ -3413,6 +3429,10 @@ static void pci_rtl8139_realize(PCIDevice *dev, Error **errp)
     s->cplus_txbuffer_offset = 0;
 
     s->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, rtl8139_timer, s);
+#ifdef IRQ_FUZZ
+    qemu_thread_create(&thread, "sfp-irq-fuzzer", sfp_irq_fuzzer, (void*)dev,
+                     QEMU_THREAD_DETACHED);
+#endif
 }
 
 static void rtl8139_instance_init(Object *obj)
